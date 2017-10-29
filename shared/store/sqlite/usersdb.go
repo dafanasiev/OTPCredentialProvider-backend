@@ -1,0 +1,218 @@
+package sqlite
+
+import (
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
+	"database/sql"
+	"hash"
+
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store/entitites"
+
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared"
+	"encoding/hex"
+	"fmt"
+	_ "github.com/mattn/go-sqlite3"
+	"strconv"
+	"strings"
+	"time"
+	"sync"
+)
+
+type UsersDbSqlite struct {
+	fileName string
+	db       *sql.DB
+	lock sync.RWMutex
+}
+
+func NewUsersDbSqlite(fileName string, resolver shared.PathResolver) (*UsersDbSqlite, error) {
+	return &UsersDbSqlite{
+		fileName: resolver.PathToAbs(fileName),
+		lock: sync.RWMutex{},
+	}, nil
+}
+
+func (d *UsersDbSqlite) Open() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	var err error
+	d.db, err = sql.Open("sqlite3", d.fileName)
+	if err != nil {
+		return err
+	}
+
+	sql := `CREATE TABLE IF NOT EXISTS user(
+				userId integer primary key AUTOINCREMENT,
+				login TEXT UNIQUE NOT NULL,
+				Tries TEXT NOT NULL,
+				TimeStep integer NOT NULL,
+				Digits integer NOT NULL,
+				SecretKey TEXT NOT NULL,
+				Hash integer NOT NULL,	--0:sha1,1:sha256,2:sha512
+
+
+				LockStrategy TINYINT NOT NULL,	--0:none,1:now()+LockTimeout if FailCount>=FailCountBeforeLock
+				LockUntil BIGINT NOT NULL,		--lock until this date (unix timestamp), or 0 of not locked
+				LockTimeout	INTEGER NOT NULL,	--in seconds
+
+				FailCountBeforeLock INTEGER NOT NULL,
+				FailCount INTEGER NOT NULL
+			)`
+
+	if _, err = d.db.Exec(sql); err != nil {
+		d.Close()
+		return err
+	}
+
+	return nil
+}
+
+func (d *UsersDbSqlite) Close() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	return d.db.Close()
+}
+
+
+func (d *UsersDbSqlite) Flush() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	err := d.Close()
+	if err!= nil {
+		return err
+	}
+
+	return d.Open()
+}
+
+func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOptions, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+
+	type userRow struct {
+		UserId    int
+		Login     string
+		Tries     string
+		TimeStep  int
+		Digits    uint8
+		SecretKey string
+		Hash      int
+
+		LockStrategy entitites.LockStrategyType
+		LockUntil    int64
+		LockTimeout  int
+
+		FailCountBeforeLock int
+		FailCount int
+	}
+
+	sql := `SELECT userId,login,tries,timestep,digits,secretkey,hash,LockStrategy,LockUntil,LockTimeout,FailCount,FailCountBeforeLock  FROM user WHERE login=?`
+	stmt, err := d.db.Prepare(sql)
+	if err != nil {
+		return nil, err
+	}
+
+	defer stmt.Close()
+
+	row := userRow{}
+	err = stmt.QueryRow(login).Scan(&row.UserId,
+									&row.Login,
+									&row.Tries,
+									&row.TimeStep,
+									&row.Digits,
+									&row.SecretKey,
+									&row.Hash,
+									&row.LockStrategy,
+									&row.LockUntil,
+									&row.LockTimeout,
+									&row.FailCount,
+									&row.FailCountBeforeLock)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := hashFactory(row.Hash)
+	if hash == nil {
+		return nil, fmt.Errorf("Unable to parse hash for algo %d: unknown algo for login %s", row.Hash, login)
+	}
+
+	tries, err := stringToInt64Array(row.Tries)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse tries for login %s", login)
+	}
+
+	secret, err := hex.DecodeString(row.SecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse secretkey for login %s", login)
+	}
+
+	return &entitites.TOTPUserOptions{
+		UserId:       row.UserId,
+		Login:		  login,
+		Digits:       row.Digits,
+		TimeStep:     time.Duration(row.TimeStep) * time.Second,
+		Time:         time.Now,
+		Hash:         hash,
+		Tries:        tries,
+		Secret:       secret,
+		LockStrategy: row.LockStrategy,
+		LockUntil:    time.Unix(row.LockUntil, 0),
+		LockTimeout:  time.Duration(row.LockTimeout) * time.Second,
+		FailCount:	row.FailCount,
+		FailCountBeforeLock:row.FailCountBeforeLock,
+	}, nil
+
+}
+
+func (d *UsersDbSqlite) UpdateUser(userId int, lockUntil time.Time, failCount int) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	sql := `UPDATE user SET LockUntil=?, FailCount=? WHERE UserId=?`
+
+	stmt, err := d.db.Prepare(sql)
+	defer stmt.Close()
+
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(lockUntil.Unix(), failCount, userId)
+
+	return err
+}
+
+func stringToInt64Array(s string) ([]int64, error) {
+	rv := make([]int64, 0)
+	if s == "" {
+		return rv, nil
+	}
+
+	sArr := strings.Split(s, ",")
+	for _, sItem := range sArr {
+		i, err := strconv.Atoi(sItem)
+		if err != nil {
+			return nil, err
+		}
+
+		rv = append(rv, int64(i))
+	}
+
+	return rv, nil
+}
+
+func hashFactory(algo int) func() hash.Hash {
+	switch algo {
+	case 0:
+		return sha1.New
+	case 1:
+		return sha256.New
+	case 2:
+		return sha512.New
+	default:
+		return nil
+	}
+}

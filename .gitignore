@@ -1,0 +1,8 @@
+.idea/
+
+vendor/
+bin/
+data/
+
+shared/api/tmp/
+testclient/node_modules/

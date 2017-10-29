@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package api;
+
+service OTPCheck {
+    rpc Check (CheckRequest) returns (CheckResponse) {}
+}
+
+message CheckRequest {
+    enum OTPType {
+        TOTP = 0;
+    }
+
+    OTPType type = 1;
+    string login = 2;
+    string code = 3;
+}
+
+message CheckResponse {
+
+}
