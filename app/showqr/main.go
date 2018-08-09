@@ -9,20 +9,20 @@ import (
 	"path"
 
 	"github.com/dafanasiev/OTPCredentialProvider-backend/shared"
-	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store"
 	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/configuration"
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store"
 
 	"github.com/balasanjay/totp"
 	"github.com/jessevdk/go-flags"
 )
 
-type Options struct {
-	Login          string `short:"l" long:"Login" description:"user Login" required:"true"`
-	Label          string `short:"t" long:"text" description:"Label"`
+type options struct {
+	Login string `short:"l" long:"Login" description:"user Login" required:"true"`
+	Label string `short:"t" long:"text" description:"Label" required:"true"`
 }
 
 func main() {
-	opts := Options{}
+	opts := options{}
 	var parser = flags.NewParser(&opts, flags.Default)
 	if _, err := parser.Parse(); err != nil {
 		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
@@ -32,7 +32,7 @@ func main() {
 	}
 
 	selfDir, err := os.Getwd()
-	if err!=nil {
+	if err != nil {
 		log.Fatal("Cant get current working directory")
 	}
 	pathResolver := shared.NewPathResolver(selfDir, path.Join(selfDir, "../data"), path.Join(selfDir, "../etc"))
@@ -50,7 +50,7 @@ func main() {
 		log.Fatalf("db create failed: %v", err.Error())
 	}
 
-	if err = db.Open(); err!=nil {
+	if err = db.Open(); err != nil {
 		log.Fatalf("Unable to open db: %s", err.Error())
 	}
 
@@ -79,11 +79,11 @@ func main() {
 	w := os.Stdout
 	img, _ := png.Decode(bytes.NewReader(qr))
 	imgBox := img.Bounds()
-	for i := 0; i< imgBox.Dx(); i+=8 {
-		for j := 0; j< imgBox.Dy(); j+=8 {
-			pix := img.At(i,j)
+	for i := 0; i < imgBox.Dx(); i += 8 {
+		for j := 0; j < imgBox.Dy(); j += 8 {
+			pix := img.At(i, j)
 			r, g, b, _ := pix.RGBA()
-			if r>128 || g>128 || b>128 {
+			if r > 128 || g > 128 || b > 128 {
 				w.Write([]byte(WHITE))
 			} else {
 				w.Write([]byte(BLACK))
