@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Cant get current working directory")
 	}
-	pathResolver := shared.NewPathResolver(selfDir, path.Join(selfDir, "../data"), path.Join(selfDir, "../etc"))
+	pathResolver := shared.NewPathResolver(selfDir, path.Join(selfDir, "..", "data"), path.Join(selfDir, "..", "etc"))
 
 	configFileName := pathResolver.PathToAbs("${dir.config}/root.config")
 	config, err := configuration.NewAppConfig(configFileName)

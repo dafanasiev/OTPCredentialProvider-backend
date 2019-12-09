@@ -9,32 +9,31 @@ import (
 
 	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store/entitites"
 
-	"github.com/dafanasiev/OTPCredentialProvider-backend/shared"
 	"encoding/hex"
 	"fmt"
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared"
 	_ "github.com/mattn/go-sqlite3"
 	"strconv"
 	"strings"
-	"time"
 	"sync"
+	"time"
 )
 
 type UsersDbSqlite struct {
 	fileName string
 	db       *sql.DB
-	lock sync.RWMutex
+	lock     sync.RWMutex
 }
 
 func NewUsersDbSqlite(fileName string, resolver shared.PathResolver) (*UsersDbSqlite, error) {
 	return &UsersDbSqlite{
 		fileName: resolver.PathToAbs(fileName),
-		lock: sync.RWMutex{},
+		lock:     sync.RWMutex{},
 	}, nil
 }
 
 func (d *UsersDbSqlite) Open() error {
 	d.lock.Lock()
-	defer d.lock.Unlock()
 
 	var err error
 	d.db, err = sql.Open("sqlite3", d.fileName)
@@ -61,10 +60,12 @@ func (d *UsersDbSqlite) Open() error {
 			)`
 
 	if _, err = d.db.Exec(sql); err != nil {
+		d.lock.Unlock()
 		d.Close()
 		return err
 	}
 
+	d.lock.Unlock()
 	return nil
 }
 
@@ -75,13 +76,12 @@ func (d *UsersDbSqlite) Close() error {
 	return d.db.Close()
 }
 
-
 func (d *UsersDbSqlite) Flush() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
 	err := d.Close()
-	if err!= nil {
+	if err != nil {
 		return err
 	}
 
@@ -106,7 +106,7 @@ func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOp
 		LockTimeout  int
 
 		FailCountBeforeLock int
-		FailCount int
+		FailCount           int
 	}
 
 	sql := `SELECT userId,login,tries,timestep,digits,secretkey,hash,LockStrategy,LockUntil,LockTimeout,FailCount,FailCountBeforeLock  FROM user WHERE login=?`
@@ -119,17 +119,17 @@ func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOp
 
 	row := userRow{}
 	err = stmt.QueryRow(login).Scan(&row.UserId,
-									&row.Login,
-									&row.Tries,
-									&row.TimeStep,
-									&row.Digits,
-									&row.SecretKey,
-									&row.Hash,
-									&row.LockStrategy,
-									&row.LockUntil,
-									&row.LockTimeout,
-									&row.FailCount,
-									&row.FailCountBeforeLock)
+		&row.Login,
+		&row.Tries,
+		&row.TimeStep,
+		&row.Digits,
+		&row.SecretKey,
+		&row.Hash,
+		&row.LockStrategy,
+		&row.LockUntil,
+		&row.LockTimeout,
+		&row.FailCount,
+		&row.FailCountBeforeLock)
 	if err != nil {
 		return nil, err
 	}
@@ -150,19 +150,19 @@ func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOp
 	}
 
 	return &entitites.TOTPUserOptions{
-		UserId:       row.UserId,
-		Login:		  login,
-		Digits:       row.Digits,
-		TimeStep:     time.Duration(row.TimeStep) * time.Second,
-		Time:         time.Now,
-		Hash:         hash,
-		Tries:        tries,
-		Secret:       secret,
-		LockStrategy: row.LockStrategy,
-		LockUntil:    time.Unix(row.LockUntil, 0),
-		LockTimeout:  time.Duration(row.LockTimeout) * time.Second,
-		FailCount:	row.FailCount,
-		FailCountBeforeLock:row.FailCountBeforeLock,
+		UserId:              row.UserId,
+		Login:               login,
+		Digits:              row.Digits,
+		TimeStep:            time.Duration(row.TimeStep) * time.Second,
+		Time:                time.Now,
+		Hash:                hash,
+		Tries:               tries,
+		Secret:              secret,
+		LockStrategy:        row.LockStrategy,
+		LockUntil:           time.Unix(row.LockUntil, 0),
+		LockTimeout:         time.Duration(row.LockTimeout) * time.Second,
+		FailCount:           row.FailCount,
+		FailCountBeforeLock: row.FailCountBeforeLock,
 	}, nil
 
 }

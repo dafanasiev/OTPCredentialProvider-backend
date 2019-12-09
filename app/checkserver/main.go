@@ -10,20 +10,20 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/api"
-	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store"
-	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/configuration"
 	"github.com/dafanasiev/OTPCredentialProvider-backend/shared"
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/api"
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/configuration"
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store"
 	"os/signal"
 	"syscall"
 )
 
 func main() {
 	selfDir, err := os.Getwd()
-	if err!=nil {
+	if err != nil {
 		log.Fatal("cant get current working directory")
 	}
-	pathResolver := shared.NewPathResolver(selfDir, path.Join(selfDir, "../data"), path.Join(selfDir, "../etc"))
+	pathResolver := shared.NewPathResolver(selfDir, path.Join(selfDir, "..", "data"), path.Join(selfDir, "..", "etc"))
 	configFileName := pathResolver.PathToAbs("${dir.config}/root.config")
 
 	config, err := configuration.NewAppConfig(configFileName)
@@ -44,15 +44,15 @@ func main() {
 	port := config.GetOrDie("server.port")
 	host := config.GetOrDie("server.host")
 
-	err  = db.Open()
-	if err!=nil {
+	err = db.Open()
+	if err != nil {
 		log.Fatalf("unable to open db: %s", err.Error())
 	}
 	defer db.Close()
 
 	hupC := make(chan os.Signal, 1)
 	signal.Notify(hupC, syscall.SIGHUP)
-	go func(){
+	go func() {
 		<-hupC
 		db.Flush()
 	}()
@@ -76,7 +76,7 @@ func main() {
 
 	ctrlC := make(chan os.Signal, 1)
 	signal.Notify(ctrlC, os.Interrupt)
-	go func(){
+	go func() {
 		<-ctrlC
 		s.Stop()
 	}()
