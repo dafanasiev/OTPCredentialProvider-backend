@@ -2,9 +2,10 @@ package store
 
 import (
 	"fmt"
-	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store/sqlite"
-	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store/entitites"
 	"github.com/dafanasiev/OTPCredentialProvider-backend/shared"
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store/entitites"
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store/json"
+	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/store/sqlite"
 	"time"
 )
 
@@ -13,16 +14,19 @@ type UsersDb interface{
 	Close() error
 	Flush() error
 
-	FindTOTPUserOptions(login string) (*entitites.TOTPUserOptions, error)
+	Find(login string) (*entitites.TOTPUserOptions, error)
 
-	UpdateUser(userId int, lockUntil time.Time, failCount int) error
+	Update(login string, lockUntil time.Time, failCount int) error
 }
 
 
 func NewUsersDb(dbtype string, connStr string, resolver shared.PathResolver) (UsersDb, error) {
-	if dbtype!= "sqlite" {
-		return nil, fmt.Errorf("Db with type [%s] not supported", dbtype)
+	switch dbtype {
+	case "sqlite":
+		return sqlite.NewUsersDb(connStr, resolver)
+	case "json":
+		return json.NewUsersDb(connStr, resolver)
+	default:
+		return nil, fmt.Errorf("db with type [%s] not supported", dbtype)
 	}
-
-	return sqlite.NewUsersDbSqlite(connStr, resolver)
 }

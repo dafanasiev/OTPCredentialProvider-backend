@@ -13,7 +13,6 @@ const (
 )
 
 type TOTPUserOptions struct{
-	UserId int
 	Login string
 
 	Time     func() time.Time

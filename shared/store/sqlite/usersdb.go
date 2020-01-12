@@ -1,3 +1,5 @@
+//+build !windows
+
 package sqlite
 
 import (
@@ -19,20 +21,20 @@ import (
 	"time"
 )
 
-type UsersDbSqlite struct {
+type usersDbSqlite struct {
 	fileName string
 	db       *sql.DB
 	lock     sync.RWMutex
 }
 
-func NewUsersDbSqlite(fileName string, resolver shared.PathResolver) (*UsersDbSqlite, error) {
-	return &UsersDbSqlite{
+func NewUsersDb(fileName string, resolver shared.PathResolver) (*usersDbSqlite, error) {
+	return &usersDbSqlite{
 		fileName: resolver.PathToAbs(fileName),
 		lock:     sync.RWMutex{},
 	}, nil
 }
 
-func (d *UsersDbSqlite) Open() error {
+func (d *usersDbSqlite) Open() error {
 	d.lock.Lock()
 
 	var err error
@@ -42,8 +44,7 @@ func (d *UsersDbSqlite) Open() error {
 	}
 
 	sql := `CREATE TABLE IF NOT EXISTS user(
-				userId integer primary key AUTOINCREMENT,
-				login TEXT UNIQUE NOT NULL,
+				login TEXT primary key NOT NULL,
 				Tries TEXT NOT NULL,
 				TimeStep integer NOT NULL,
 				Digits integer NOT NULL,
@@ -69,14 +70,14 @@ func (d *UsersDbSqlite) Open() error {
 	return nil
 }
 
-func (d *UsersDbSqlite) Close() error {
+func (d *usersDbSqlite) Close() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
 	return d.db.Close()
 }
 
-func (d *UsersDbSqlite) Flush() error {
+func (d *usersDbSqlite) Flush() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -88,12 +89,11 @@ func (d *UsersDbSqlite) Flush() error {
 	return d.Open()
 }
 
-func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOptions, error) {
+func (d *usersDbSqlite) Find(login string) (*entitites.TOTPUserOptions, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
 	type userRow struct {
-		UserId    int
 		Login     string
 		Tries     string
 		TimeStep  int
@@ -109,7 +109,7 @@ func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOp
 		FailCount           int
 	}
 
-	sql := `SELECT userId,login,tries,timestep,digits,secretkey,hash,LockStrategy,LockUntil,LockTimeout,FailCount,FailCountBeforeLock  FROM user WHERE login=?`
+	sql := `SELECT login,tries,timestep,digits,secretkey,hash,LockStrategy,LockUntil,LockTimeout,FailCount,FailCountBeforeLock  FROM user WHERE login=?`
 	stmt, err := d.db.Prepare(sql)
 	if err != nil {
 		return nil, err
@@ -118,8 +118,7 @@ func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOp
 	defer stmt.Close()
 
 	row := userRow{}
-	err = stmt.QueryRow(login).Scan(&row.UserId,
-		&row.Login,
+	err = stmt.QueryRow(login).Scan(&row.Login,
 		&row.Tries,
 		&row.TimeStep,
 		&row.Digits,
@@ -150,7 +149,6 @@ func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOp
 	}
 
 	return &entitites.TOTPUserOptions{
-		UserId:              row.UserId,
 		Login:               login,
 		Digits:              row.Digits,
 		TimeStep:            time.Duration(row.TimeStep) * time.Second,
@@ -167,11 +165,11 @@ func (d *UsersDbSqlite) FindTOTPUserOptions(login string) (*entitites.TOTPUserOp
 
 }
 
-func (d *UsersDbSqlite) UpdateUser(userId int, lockUntil time.Time, failCount int) error {
+func (d *usersDbSqlite) Update(login string, lockUntil time.Time, failCount int) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	sql := `UPDATE user SET LockUntil=?, FailCount=? WHERE UserId=?`
+	sql := `UPDATE user SET LockUntil=?, FailCount=? WHERE Login=?`
 
 	stmt, err := d.db.Prepare(sql)
 	defer stmt.Close()
@@ -180,7 +178,7 @@ func (d *UsersDbSqlite) UpdateUser(userId int, lockUntil time.Time, failCount in
 		return err
 	}
 
-	_, err = stmt.Exec(lockUntil.Unix(), failCount, userId)
+	_, err = stmt.Exec(lockUntil.Unix(), failCount, login)
 
 	return err
 }

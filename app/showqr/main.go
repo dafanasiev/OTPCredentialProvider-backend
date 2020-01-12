@@ -6,7 +6,7 @@ import (
 
 	"bytes"
 	"image/png"
-	"path"
+	"path/filepath"
 
 	"github.com/dafanasiev/OTPCredentialProvider-backend/shared"
 	"github.com/dafanasiev/OTPCredentialProvider-backend/shared/configuration"
@@ -35,7 +35,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Cant get current working directory")
 	}
-	pathResolver := shared.NewPathResolver(selfDir, path.Join(selfDir, "..", "data"), path.Join(selfDir, "..", "etc"))
+
+	pathResolver := shared.NewPathResolver(selfDir, filepath.Join(selfDir, "..", "data"), filepath.Join(selfDir, "..", "etc"))
 
 	configFileName := pathResolver.PathToAbs("${dir.config}/root.config")
 	config, err := configuration.NewAppConfig(configFileName)
@@ -56,7 +57,7 @@ func main() {
 
 	defer db.Close()
 
-	user, err := db.FindTOTPUserOptions(opts.Login)
+	user, err := db.Find(opts.Login)
 	if err != nil {
 		log.Fatalf("unable to find Login %s in db die to error:%s", opts.Login, err.Error())
 	}

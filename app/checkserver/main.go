@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
-	"path"
+	"path/filepath"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatal("cant get current working directory")
 	}
-	pathResolver := shared.NewPathResolver(selfDir, path.Join(selfDir, "..", "data"), path.Join(selfDir, "..", "etc"))
+	pathResolver := shared.NewPathResolver(selfDir, filepath.Join(selfDir, "..", "data"), filepath.Join(selfDir, "..", "etc"))
 	configFileName := pathResolver.PathToAbs("${dir.config}/root.config")
 
 	config, err := configuration.NewAppConfig(configFileName)

@@ -88,7 +88,7 @@ func (s *server) Check(ctx context.Context, req *api.CheckRequest) (*api.CheckRe
 		return nil, err
 	}
 
-	user, err := s.db.FindTOTPUserOptions(req.Login)
+	user, err := s.db.Find(req.Login)
 	if err != nil {
 		log.Printf("ERROR: unable to fetch user %s from db; error:%s", req.Login, err.Error())
 		return nil, errors.New(CheckError_UnknownUser)
@@ -123,16 +123,16 @@ func (s *server) Check(ctx context.Context, req *api.CheckRequest) (*api.CheckRe
 }
 
 func onAuthenticateLocked(user *entitites.TOTPUserOptions, db store.UsersDb) {
-	err := db.UpdateUser(user.UserId, user.LockUntil, user.FailCount+1)
+	err := db.Update(user.Login, user.LockUntil, user.FailCount+1)
 	if err != nil {
-		log.Printf("WARNING: cant update user %s with id %d; error:%s", user.Login, user.UserId, err.Error())
+		log.Printf("WARNING: cant update user %s with login %s; error:%s", user.Login, user.Login, err.Error())
 	}
 }
 
 func onAuthenticateSuccess(user *entitites.TOTPUserOptions, db store.UsersDb) {
-	err := db.UpdateUser(user.UserId, time.Unix(0, 0), 0)
+	err := db.Update(user.Login, time.Unix(0, 0), 0)
 	if err != nil {
-		log.Printf("WARNING: cant update user %s with id %d; error:%s", user.Login, user.UserId, err.Error())
+		log.Printf("WARNING: cant update user %s with login %s; error:%s", user.Login, user.Login, err.Error())
 	}
 }
 
@@ -146,13 +146,13 @@ func onAuthenticateFailed(user *entitites.TOTPUserOptions, db store.UsersDb) {
 	case entitites.LockStrategyType_None:
 		break
 	case entitites.LockStrategyType_Simple:
-		err := db.UpdateUser(user.UserId, newLockUntil, user.FailCount+1)
+		err := db.Update(user.Login, newLockUntil, user.FailCount+1)
 		if err != nil {
-			log.Printf("WARNING: cant update user %s with id %d; error:%s", user.Login, user.UserId, err.Error())
+			log.Printf("WARNING: cant update user %s with login %s; error:%s", user.Login, user.Login, err.Error())
 		}
 		break
 	default:
-		log.Printf("WARNING: unknown LockStrategy value [%d] for user %s with userId %d", user.LockStrategy, user.Login, user.UserId)
+		log.Printf("WARNING: unknown LockStrategy value [%d] for user %s", user.LockStrategy, user.Login)
 		break
 	}
 }
