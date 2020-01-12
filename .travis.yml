@@ -1,8 +1,15 @@
 language: go
-
 go:
-  - 1.13.x
-  - tip
-
+- 1.13.x
+- tip
 script:
-  - make build
+- make build
+deploy:
+  provider: releases
+  file_glob: true
+  file: bin/*
+  skip_cleanup: true
+  on:
+    tags: true
+  token:
+    secure: jis8jqNdMmu9d80R7vCcu6QRG8H9dr4TPpS2SsLfhHsQse7xY6QhGvPv5fJbfKWbV+d2Wbn+OAfAQ5mC9Ulr3mEq+K3xHNShGTYtFTJf9NYV+tGe/9jzUwQGwU700LvZiOA6k4Wa9S5VXxdeyUhCVCBHE8OTWtGZMlNKP1KxvCodK0N7ECew7pFq9mMIBt8D6RUtzCTkjblrbgRgtwWNtNBbQiOTSMhtakNom6Q3TJ9PnQC+NlxsoQPB9jhSZpswje6JgfPVEsVR9VJHYeyLIm79THJJllXDPY2VGdfoMtMpQg6/HYbQH2aGvgdN1yxCTd2uzK7re/c1AKmdk2RW/JbSxcmwl/y02s4eFURBy9qnsia7FLhH4sqOeFVFx8g4oPvWCVx3zUjD7aoJVqhaXLFz1qAzMKKn/T5VOAD/iYBlobhWhY3H3MFxHkv0JAOf5vYMVH/q4u5A1kr8l3Cr7uPSF+ZdLmGHRvI2e+PXNOFPPUqM283dn17qj8zW0ZeWOU1npSJaS45h8KscvhRo/yKlkjYI0vPo1jO0AJ7dpqUroNq/ddL1J2nKpAeKkG8b5+sLexATpNxGU6vS8ZCyCnY3VfJi7C4sAZLGa1UwEEhcrtDcZFaW+gO+UsStaaF2cGQAgbR11AlqP4FJIEcVJJH5R9l4VT/16F+Tr9AeHYQ=
